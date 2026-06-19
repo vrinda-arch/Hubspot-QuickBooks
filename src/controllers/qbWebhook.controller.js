@@ -1,8 +1,9 @@
 const crypto = require("crypto");
-const { handleInvoice, handlePayment, handleCreditMemo } = require("../services/quickbooks/qbWebhook.service");
+const { handleEstimate, handleInvoice, handlePayment, handleCreditMemo } = require("../services/quickbooks/qbWebhook.service");
 
 exports.quickBooksWebhook = async (req, res) => {
   try {
+    console.log("QB webhook received, intuit-signature:", req.headers["intuit-signature"] ? "present" : "missing");
     const sig = req.headers["intuit-signature"];
     const hash = crypto
       .createHmac("sha256", process.env.QB_WEBHOOK_VERIFIER)
@@ -22,11 +23,12 @@ exports.quickBooksWebhook = async (req, res) => {
         const { id, name } = entity;
         console.log(`QB webhook entity received: ${name} ${id}`);
         try {
-          if (name === "Invoice") await handleInvoice({ realmId, id });
+          if (name === "Estimate") await handleEstimate({ realmId, id });
+        if (name === "Invoice") await handleInvoice({ realmId, id });
           if (name === "Payment") await handlePayment({ realmId, id });
           if (name === "CreditMemo") await handleCreditMemo({ realmId, id });
         } catch (err) {
-          console.error(`Error processing QB entity ${name} ${id}:`, err.message);
+          console.error(`Error processing QB entity ${name} ${id}:`, err?.response?.data ?? err.message);
         }
       }
     }

@@ -107,6 +107,135 @@ exports.queryEstimate = async (req, res) => {
   }
 };
 
+/**
+ * Returns the full raw JSON for a base proposal estimate + any sub-estimates
+ * (DocNumber LIKE 'proposalId%'). Use this to inspect TxnStatus/LinkedTxn on
+ * PHC proposals and confirm whether sub-estimates exist upfront or only appear
+ * later, per treatment.
+ */
+exports.querySubEstimates = async (req, res) => {
+  try {
+    const realmId = req.query.realmId?.trim();
+    const proposalId = req.query.proposalId?.trim();
+    if (!realmId || !proposalId) {
+      return res.status(400).json({ success: false, message: "realmId and proposalId are required" });
+    }
+
+    const data = await quickBooksRequest({
+      realmId,
+      endpoint: "/query",
+      params: { query: `SELECT * FROM Estimate WHERE DocNumber LIKE '${proposalId}%'` },
+    });
+
+    const estimates = data.QueryResponse?.Estimate ?? [];
+
+    res.json({
+      success: true,
+      count: estimates.length,
+      estimates: estimates.map((e) => ({
+        id: e.Id,
+        docNumber: e.DocNumber,
+        txnStatus: e.TxnStatus,
+        totalAmt: e.TotalAmt,
+        txnDate: e.TxnDate,
+        lastUpdated: e.MetaData?.LastUpdatedTime,
+        customerRef: e.CustomerRef,
+        raw: e,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message, qbError: error?.response?.data });
+  }
+};
+
+/**
+ * Returns full raw JSON for invoices belonging to a QB customer, to inspect
+ * LinkedTxn back to the estimate(s) they were converted from.
+ */
+exports.queryPayment = async (req, res) => {
+  try {
+    const realmId = req.query.realmId?.trim();
+    const paymentId = req.query.id?.trim();
+    if (!realmId || !paymentId) {
+      return res.status(400).json({ success: false, message: "realmId and id are required" });
+    }
+
+    const data = await quickBooksRequest({ realmId, endpoint: `/payment/${paymentId}` });
+    const payment = data.Payment;
+
+    res.json({
+      success: true,
+      id: payment?.Id,
+      totalAmt: payment?.TotalAmt,
+      unappliedAmt: payment?.UnappliedAmt,
+      customerRef: payment?.CustomerRef,
+      lines: payment?.Line,
+      raw: payment,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message, qbError: error?.response?.data });
+  }
+};
+
+exports.queryCreditMemo = async (req, res) => {
+  try {
+    const realmId = req.query.realmId?.trim();
+    const creditMemoId = req.query.id?.trim();
+    if (!realmId || !creditMemoId) {
+      return res.status(400).json({ success: false, message: "realmId and id are required" });
+    }
+
+    const data = await quickBooksRequest({ realmId, endpoint: `/creditmemo/${creditMemoId}` });
+    const cm = data.CreditMemo;
+
+    res.json({
+      success: true,
+      id: cm?.Id,
+      docNumber: cm?.DocNumber,
+      totalAmt: cm?.TotalAmt,
+      customerRef: cm?.CustomerRef,
+      linkedTxn: cm?.LinkedTxn,
+      raw: cm,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message, qbError: error?.response?.data });
+  }
+};
+
+exports.queryInvoicesForCustomer = async (req, res) => {
+  try {
+    const realmId = req.query.realmId?.trim();
+    const customerId = req.query.customerId?.trim();
+    if (!realmId || !customerId) {
+      return res.status(400).json({ success: false, message: "realmId and customerId are required" });
+    }
+
+    const data = await quickBooksRequest({
+      realmId,
+      endpoint: "/query",
+      params: { query: `SELECT * FROM Invoice WHERE CustomerRef = '${customerId}' MAXRESULTS 50` },
+    });
+
+    const invoices = data.QueryResponse?.Invoice ?? [];
+
+    res.json({
+      success: true,
+      count: invoices.length,
+      invoices: invoices.map((inv) => ({
+        id: inv.Id,
+        docNumber: inv.DocNumber,
+        totalAmt: inv.TotalAmt,
+        balance: inv.Balance,
+        txnDate: inv.TxnDate,
+        linkedTxn: inv.LinkedTxn,
+        raw: inv,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message, qbError: error?.response?.data });
+  }
+};
+
 
 
 

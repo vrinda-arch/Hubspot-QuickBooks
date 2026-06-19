@@ -1,6 +1,7 @@
 const Mapping = require("../models/Mapping");
 const { quickBooksRequest } = require("../services/quickbooks/qbClient.service");
 const { updateDeal } = require("../services/hubspot/hubspot.service");
+const { updateHubSpotInvoiceBalance } = require("../services/hubspot/hubspotInvoice.service");
 
 module.exports = async function checkOverdueInvoices() {
   console.log("Running overdue invoice check...");
@@ -28,6 +29,9 @@ module.exports = async function checkOverdueInvoices() {
 
       if (dueDate && dueDate < today && balance > 0) {
         await updateDeal(mapping.hubspotDealId, { final_payment_status: "Overdue" });
+        if (mapping.hubspotInvoiceId) {
+          await updateHubSpotInvoiceBalance(mapping.hubspotInvoiceId, balance, "Overdue");
+        }
         console.log(`Invoice ${mapping.qbInvoiceId} overdue — deal ${mapping.hubspotDealId} updated.`);
       }
     } catch (err) {

@@ -10,16 +10,9 @@ const mappingSchema = new mongoose.Schema({
 
   qbCustomerId: String,
 
-  advancePaymentLink: String,
-
   qbInvoiceId: String,
   hubspotInvoiceId: String,
   finalInvoiceLink: String,
-
-  advancePaymentStatus: {
-    type: String,
-    default: "PENDING",
-  },
 
   finalPaymentStatus: {
     type: String,
@@ -30,5 +23,6 @@ const mappingSchema = new mongoose.Schema({
 mappingSchema.index({ hubspotDealId: 1 });
 mappingSchema.index({ qbEstimateId: 1 });
 mappingSchema.index({ qbInvoiceId: 1 });
+mappingSchema.index({ qbCustomerId: 1 });
 
 module.exports = mongoose.model("Mapping", mappingSchema);

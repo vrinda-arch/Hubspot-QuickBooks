@@ -1,12 +1,11 @@
 const Mapping = require("../models/Mapping");
 const { quickBooksRequest } = require("../services/quickbooks/qbClient.service");
 const { syncCustomerFieldsToQb } = require("../services/quickbooks/qbCustomer.service");
-const { attachEstimatePdfToDeal } = require("../services/hubspot/hubspotInvoice.service");
 const { getHubSpotDealOwnerName, getHubSpotCompanyForDeal } = require("../services/hubspot/hubspot.service");
 
 exports.saveEstimateMapping = async (req, res) => {
   try {
-    const { proposalId, qbEstimateId, qbDocNumber, hubspotDealId, realmId, estimateLink } = req.body;
+    const { proposalId, qbEstimateId, qbDocNumber, hubspotDealId, realmId } = req.body;
 
     if (!proposalId || !qbEstimateId || !hubspotDealId || !realmId) {
       return res.status(400).json({ error: "proposalId, qbEstimateId, hubspotDealId, and realmId are required" });
@@ -17,7 +16,7 @@ exports.saveEstimateMapping = async (req, res) => {
 
     const mapping = await Mapping.findOneAndUpdate(
       { proposalId },
-      { qbEstimateId, qbDocNumber, hubspotDealId, realmId, advancePaymentLink: estimateLink, qbCustomerId },
+      { qbEstimateId, qbDocNumber, hubspotDealId, realmId, qbCustomerId },
       { upsert: true, returnDocument: "after" }
     );
 
@@ -35,10 +34,6 @@ exports.saveEstimateMapping = async (req, res) => {
         })
         .catch((err) => console.error("syncCustomerFieldsToQb failed:", err.message));
     }
-
-    // Fire-and-forget: upload estimate PDF to HubSpot Files
-    attachEstimatePdfToDeal({ realmId, estimateId: qbEstimateId, dealId: hubspotDealId })
-      .catch((err) => console.error("attachEstimatePdfToDeal failed:", err.message));
 
     // Fire-and-forget: write PM name to QB estimate PrivateNote
     getHubSpotDealOwnerName(hubspotDealId)

@@ -1,5 +1,4 @@
 const crypto = require("crypto");
-const { handleDealStageChange, handleDealCreation } = require("../services/hubspot/hubspotWebhook.service");
 
 exports.hubspotWebhook = async (req, res) => {
   try {
@@ -26,15 +25,7 @@ exports.hubspotWebhook = async (req, res) => {
     const events = JSON.parse(rawBody);
 
     for (const event of events) {
-      const dealId = String(event.objectId);
-
-      if (event.subscriptionType === "deal.creation") {
-        await handleDealCreation({ dealId });
-      }
-
-      if (event.subscriptionType === "deal.propertyChange" && event.propertyName === "dealstage") {
-        await handleDealStageChange({ dealId, dealStage: event.propertyValue });
-      }
+      console.log(`HS event: ${event.subscriptionType}, objectId: ${event.objectId}, property: ${event.propertyName ?? "-"}, value: ${event.propertyValue ?? "-"}`);
     }
 
     res.status(200).send("OK");

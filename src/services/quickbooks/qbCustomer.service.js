@@ -1,7 +1,5 @@
-const axios = require("axios");
-const { getValidAccessToken } = require("./qbToken.service");
+const { quickBooksRequest } = require("./qbClient.service");
 
-// Maps both label and direct QB ID (HubSpot dropdown values may be QB IDs directly)
 const QB_CUSTOMER_TYPE_MAP = {
   residential: "793152",
   commercial:  "793153",
@@ -13,27 +11,18 @@ const QB_CUSTOMER_TYPE_MAP = {
   "793155":    "793155",
 };
 
-
-const getQbBase = (environment) =>
-  environment === "sandbox"
-    ? "https://sandbox-quickbooks.api.intuit.com"
-    : "https://quickbooks.api.intuit.com";
-
 exports.syncCustomerFieldsToQb = async ({ realmId, qbCustomerId, customerType, taxExemption }) => {
   if (!customerType && !taxExemption) {
     console.log(`No customer fields to sync for QB customer ${qbCustomerId}, skipping.`);
     return;
   }
 
-  const { accessToken, environment } = await getValidAccessToken(realmId);
-  const base = getQbBase(environment);
-
-  // Fetch current customer to get SyncToken (required for sparse updates)
-  const fetchRes = await axios.get(
-    `${base}/v3/company/${realmId}/customer/${qbCustomerId}`,
-    { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } }
-  );
-  const customer = fetchRes.data.Customer;
+  const fetchRes = await quickBooksRequest({ realmId, endpoint: `/customer/${qbCustomerId}` });
+  const customer = fetchRes.Customer;
+  if (!customer) {
+    console.log(`QB customer ${qbCustomerId} not found, skipping sync.`);
+    return;
+  }
 
   const updatePayload = {
     Id: customer.Id,
@@ -41,7 +30,6 @@ exports.syncCustomerFieldsToQb = async ({ realmId, qbCustomerId, customerType, t
     sparse: true,
   };
 
-  // Customer Type
   if (customerType) {
     const typeId = QB_CUSTOMER_TYPE_MAP[customerType.toLowerCase()];
     if (typeId) {
@@ -52,7 +40,6 @@ exports.syncCustomerFieldsToQb = async ({ realmId, qbCustomerId, customerType, t
     }
   }
 
-  // Tax Exemption — stored in Notes since QBO doesn't support customer-level custom fields via API
   if (taxExemption) {
     const existingNotes = customer.Notes || "";
     const taxNote = `Tax Exemption: ${taxExemption}`;
@@ -62,17 +49,7 @@ exports.syncCustomerFieldsToQb = async ({ realmId, qbCustomerId, customerType, t
     console.log(`Setting QB Customer Notes with tax exemption: "${taxExemption}"`);
   }
 
-  await axios.post(
-    `${base}/v3/company/${realmId}/customer`,
-    updatePayload,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  await quickBooksRequest({ realmId, endpoint: `/customer`, method: "POST", data: updatePayload });
 
   console.log(`QB customer ${qbCustomerId} fields synced successfully.`);
 };
