@@ -37,6 +37,34 @@ router.post("/trigger-payment/:realmId/:paymentId", async (req, res) => {
   }
 });
 
+// GET /quickbooks/token — returns a guaranteed-fresh access token (auto-refreshes if expired).
+// Handy for testing QB calls in Postman without digging in the DB.
+// Optional ?realmId=... — defaults to the active connection.
+router.get("/token", async (req, res) => {
+  try {
+    const { getValidAccessToken } = require("../services/quickbooks/qbToken.service");
+    const QuickBooksConnection = require("../models/QuickBooksConnection");
+
+    let realmId = req.query.realmId;
+    if (!realmId) {
+      const conn = await QuickBooksConnection.findOne({ isActive: true });
+      if (!conn) return res.status(404).json({ error: "No active QuickBooks connection found" });
+      realmId = conn.realmId;
+    }
+
+    const { accessToken, environment } = await getValidAccessToken(realmId);
+    const conn = await QuickBooksConnection.findOne({ realmId });
+    res.json({
+      realmId,
+      environment,
+      accessToken,
+      expiresAt: conn?.accessTokenExpiresAt ?? null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err?.response?.data ?? err.message });
+  }
+});
+
 // ✅ webhook
 router.post("/webhook", qbWebhookController.quickBooksWebhook);
 

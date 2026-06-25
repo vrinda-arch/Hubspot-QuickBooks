@@ -1,4 +1,9 @@
 const mongoose = require("mongoose");
+const dns = require("dns");
+
+// Some routers/ISP DNS servers refuse SRV-record lookups, which breaks
+// mongodb+srv:// connections in Node. Force a resolver that answers SRV.
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 const connectDB = async () => {
   try {

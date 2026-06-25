@@ -1,6 +1,16 @@
 const axios = require("axios");
+const https = require("https");
 const { getValidAccessToken } = require("./qbToken.service");
 const { withRetry } = require("../../utils/retry");
+
+// Node 24 / OpenSSL 3.5 offers post-quantum (ML-KEM) TLS key shares by default,
+// producing a large ClientHello that some networks/AV/firewalls reject with an
+// SSL "internal error" alert. Pin classic curves to keep the handshake small and
+// reuse connections via keep-alive.
+const qbHttpsAgent = new https.Agent({
+  keepAlive: true,
+  ecdhCurve: "X25519:prime256v1:secp384r1",
+});
 
 exports.quickBooksRequest = async ({ realmId, endpoint, method = "GET", data = null, params = {} }) => {
   const { accessToken, environment } = await getValidAccessToken(realmId);
@@ -13,7 +23,7 @@ exports.quickBooksRequest = async ({ realmId, endpoint, method = "GET", data = n
   return withRetry(
     async () => {
       try {
-        const response = await axios({ url, method, data, params, headers: {
+        const response = await axios({ url, method, data, params, httpsAgent: qbHttpsAgent, headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
           "Content-Type": "application/json",

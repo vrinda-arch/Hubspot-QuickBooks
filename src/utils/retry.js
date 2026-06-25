@@ -1,8 +1,14 @@
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
-const RETRYABLE_CODES = new Set(["ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "ENETUNREACH", "ECONNABORTED"]);
+const RETRYABLE_CODES = new Set([
+  "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "ENETUNREACH", "ECONNABORTED",
+  "EPROTO", "ERR_SSL_TLSV1_ALERT_INTERNAL_ERROR",
+]);
 
 function isRetryable(err) {
   if (RETRYABLE_CODES.has(err.code)) return true;
+  // Transient TLS handshake failures (e.g. a middlebox/AV aborting with an
+  // SSL alert) surface as ERR_SSL_* codes — treat all of them as retryable.
+  if (typeof err.code === "string" && err.code.startsWith("ERR_SSL")) return true;
   const status = err?.response?.status;
   return Boolean(status && RETRYABLE_STATUSES.has(status));
 }
