@@ -23,11 +23,16 @@ exports.quickBooksRequest = async ({ realmId, endpoint, method = "GET", data = n
   return withRetry(
     async () => {
       try {
-        const response = await axios({ url, method, data, params, httpsAgent: qbHttpsAgent, headers: {
+        const headers = {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
-          "Content-Type": "application/json",
-        }});
+        };
+        // QuickBooks rejects a Content-Type header on requests without a body
+        // (GET reads) with a 2010 "ContentType Header ... unsupported" fault,
+        // so only set it when we're actually sending a payload.
+        if (data) headers["Content-Type"] = "application/json";
+
+        const response = await axios({ url, method, data, params, httpsAgent: qbHttpsAgent, headers });
         return response.data;
       } catch (error) {
         console.error(`QB API Error [${method} ${endpoint}]:`, JSON.stringify({
