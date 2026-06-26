@@ -63,6 +63,10 @@ exports.getHubSpotCompanyForDeal = async (dealId) => {
     return null;
   }
 
+  return exports.getHubSpotCompanyById(companyId);
+};
+
+exports.getHubSpotCompanyById = async (companyId) => {
   const companyRes = await exports.hsRequest(
     () => axios.get(
       `${HUBSPOT_BASE}/crm/v3/objects/companies/${companyId}?properties=customer_type,tax_exemption`,
@@ -71,4 +75,16 @@ exports.getHubSpotCompanyForDeal = async (dealId) => {
     `getCompany ${companyId}`
   );
   return companyRes.data?.properties || null;
+};
+
+// Returns the IDs of deals associated with a HubSpot company.
+exports.getDealsForCompany = async (companyId) => {
+  const res = await exports.hsRequest(
+    () => axios.get(
+      `${HUBSPOT_BASE}/crm/v4/objects/companies/${companyId}/associations/deals`,
+      { headers: hsHeaders() }
+    ),
+    `getCompanyDeals ${companyId}`
+  );
+  return (res.data?.results ?? []).map((r) => r.toObjectId).filter(Boolean);
 };
