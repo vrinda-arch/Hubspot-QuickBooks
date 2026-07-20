@@ -108,7 +108,9 @@ exports.handleInvoice = async ({ realmId, id }) => {
   console.log(`handleInvoice called: invoice ${id}, realmId ${realmId}`);
   const invoiceRes = await quickBooksRequest({ realmId, endpoint: `/invoice/${id}` });
   const invoice = invoiceRes.Invoice;
-  const estimateId = invoice.LinkedTxn?.[0]?.TxnId;
+  // LinkedTxn can include non-Estimate references (e.g. an applied Payment) —
+  // only treat it as the source estimate if it's actually typed Estimate.
+  const estimateId = invoice.LinkedTxn?.find((t) => t.TxnType === "Estimate")?.TxnId;
   const qbCustomerId = invoice.CustomerRef?.value;
   console.log(`Invoice ${id} — estimateId: ${estimateId}, customerId: ${qbCustomerId}`);
 
